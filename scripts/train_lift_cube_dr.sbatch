@@ -5,6 +5,7 @@
 #SBATCH --mem=64G
 #SBATCH --output=%x-%j.out
 #SBATCH --error=%x-%j.out
+#SBATCH --time=04:00:00
 
 # RGB PPO training of SO101GraspCube-v1 (grasp + lift cube, return to rest pose) with domain randomization.
 #
