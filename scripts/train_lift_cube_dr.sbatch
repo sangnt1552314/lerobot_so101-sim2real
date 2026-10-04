@@ -36,6 +36,9 @@ EXP_NAME="${EXP_NAME:-${SLURM_JOB_NAME:-ppo-${ENV_ID}-rgb}-s${SEED}-${SLURM_JOB_
 
 cd "${SLURM_SUBMIT_DIR:-$(pwd)}"
 
+# Make lerobot_sim2real importable from the repo root regardless of how pip's editable install behaves.
+export PYTHONPATH="$(pwd)${PYTHONPATH:+:${PYTHONPATH}}"
+
 source ~/miniconda3/etc/profile.d/conda.sh
 
 # Create the env on first use. The lock stops concurrent jobs from installing into it at the same time;
@@ -56,6 +59,8 @@ fi
 conda activate "${ENV_NAME}"
 
 echo "host: $(hostname) | job: ${SLURM_JOB_ID:-n/a} | exp: ${EXP_NAME}"
+echo "python: $(command -v python) | repo: $(pwd)"
+python -c "import lerobot_sim2real, mani_skill; print('lerobot_sim2real from', lerobot_sim2real.__path__)"
 nvidia-smi
 
 # The env config points at a greenscreen image; fail early instead of crashing after env setup.
