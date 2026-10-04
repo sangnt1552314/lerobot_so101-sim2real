@@ -317,6 +317,7 @@ def train(args: PPOArgs):
         env_kwargs["control_mode"] = args.control_mode
     env_kwargs.update(args.env_kwargs)
 
+    print(f"Creating {args.num_eval_envs} eval envs and {args.num_envs} train envs for {args.env_id}")
     eval_envs = gym.make(args.env_id, num_envs=args.num_eval_envs, reconfiguration_freq=args.eval_reconfiguration_freq, **env_kwargs)
     envs = gym.make(args.env_id, num_envs=args.num_envs if not args.evaluate else 1, reconfiguration_freq=args.reconfiguration_freq, **env_kwargs)
 
