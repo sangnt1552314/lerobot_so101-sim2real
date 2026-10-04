@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=squint-lift-cube-dr-wrist-home
+#SBATCH --job-name=so101-grasp-cube-dr
 #SBATCH --partition=gpu
 #SBATCH --gres=gpu:h100-96:1
 #SBATCH --mem=64G
@@ -39,6 +39,8 @@ cd "${SLURM_SUBMIT_DIR:-$(pwd)}"
 
 # Make lerobot_sim2real importable from the repo root regardless of how pip's editable install behaves.
 export PYTHONPATH="$(pwd)${PYTHONPATH:+:${PYTHONPATH}}"
+# Flush prints straight to the slurm log instead of buffering them.
+export PYTHONUNBUFFERED=1
 
 source ~/miniconda3/etc/profile.d/conda.sh
 
