@@ -42,6 +42,7 @@ pip install -e "${REPO_DIR}"
 echo "[setup] verifying install"
 python - <<'EOF'
 import torch, mani_skill, sapien
+import lerobot_sim2real.rl.ppo_rgb  # fails here if the editable install picked up no packages
 print("torch", torch.__version__, "| cuda available:", torch.cuda.is_available())
 print("mani_skill", mani_skill.__version__, "| sapien", sapien.__version__)
 EOF
