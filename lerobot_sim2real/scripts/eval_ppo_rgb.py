@@ -44,6 +44,12 @@ class Args:
     """Directory to save recordings of the camera captured images. If none no recordings are saved"""
     control_freq: Optional[int] = 15
     """The control frequency of the real robot. For safety reasons we recommend setting this to 15Hz or lower as we permit the RL agent to take larger actions to move faster. If this is none, it will use the same control frequency the sim env uses."""
+    robot_uid: str = "so101"
+    """The real robot type, see lerobot_sim2real/config/real_robot.py"""
+    robot_port: Optional[str] = None
+    """Serial port of the real robot. If None, the port in lerobot_sim2real/config/real_robot.py is used"""
+    robot_id: Optional[str] = None
+    """Calibration id of the real robot (the --robot.id used with lerobot-calibrate). If None, the id in lerobot_sim2real/config/real_robot.py is used"""
 
 def overlay_envs(sim_env, real_env):
     """
@@ -72,7 +78,7 @@ def main(args: Args):
     torch.manual_seed(args.seed)
 
     ### Create and connect the real robot, wrap it to make it interfaceable with ManiSkill sim2real environments ###    
-    real_robot = create_real_robot(uid="so101")
+    real_robot = create_real_robot(uid=args.robot_uid, port=args.robot_port, robot_id=args.robot_id)
     real_robot.connect()
     real_agent = LeRobotRealAgent(real_robot)
 

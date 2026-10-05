@@ -17,7 +17,17 @@ try:
     from lerobot.common.robots.robot import Robot
     from lerobot.common.utils.robot_utils import busy_wait
 except ImportError:
-    pass
+    try:
+        from lerobot.motors.motors_bus import MotorNormMode
+        from lerobot.robots.robot import Robot
+
+        try:
+            from lerobot.utils.robot_utils import busy_wait
+        except ImportError:
+            # lerobot >= 0.4 renamed busy_wait to precise_sleep
+            from lerobot.utils.robot_utils import precise_sleep as busy_wait
+    except ImportError:
+        pass
 
 
 class LeRobotRealAgent(BaseRealAgent):
