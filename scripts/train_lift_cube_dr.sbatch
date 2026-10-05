@@ -5,7 +5,6 @@
 #SBATCH --mem=64G
 #SBATCH --cpus-per-task=8
 # xgpi7: GPU camera rendering (Vulkan) hangs in create_camera_group on this node
-#SBATCH --exclude=xgpi7
 #SBATCH --output=%x-%j.out
 #SBATCH --error=%x-%j.out
 #SBATCH --time=04:00:00
