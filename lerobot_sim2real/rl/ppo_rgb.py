@@ -3,6 +3,7 @@
 Only modification is Args is renamed to PPOArgs, the main function is put inside a train function for cross-module use, and we provide support to modify env kwargs
 """
 from collections import defaultdict
+import faulthandler
 import json
 import os
 import random
@@ -318,8 +319,15 @@ def train(args: PPOArgs):
     env_kwargs.update(args.env_kwargs)
 
     print(f"Creating {args.num_eval_envs} eval envs and {args.num_envs} train envs for {args.env_id}")
+    # env creation can hang silently on cluster nodes; dump the stack to stderr every 2 min until it finishes
+    faulthandler.dump_traceback_later(120, repeat=True)
+    t0 = time.time()
     eval_envs = gym.make(args.env_id, num_envs=args.num_eval_envs, reconfiguration_freq=args.eval_reconfiguration_freq, **env_kwargs)
+    print(f"Created eval envs in {time.time() - t0:.1f}s")
+    t0 = time.time()
     envs = gym.make(args.env_id, num_envs=args.num_envs if not args.evaluate else 1, reconfiguration_freq=args.reconfiguration_freq, **env_kwargs)
+    print(f"Created train envs in {time.time() - t0:.1f}s")
+    faulthandler.cancel_dump_traceback_later()
 
     # rgbd obs mode returns a dict of data, we flatten it so there is just a rgbd key and state key
     envs = FlattenRGBDObservationWrapper(envs, rgb=True, depth=False, state=args.include_state)

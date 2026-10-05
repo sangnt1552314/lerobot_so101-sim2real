@@ -6,7 +6,7 @@
 #SBATCH --cpus-per-task=8
 #SBATCH --output=%x-%j.out
 #SBATCH --error=%x-%j.out
-#SBATCH --time=06:00:00
+#SBATCH --time=04:00:00
 
 # RGB PPO training of SO101GraspCube-v1 (grasp + lift cube, return to rest pose) with domain randomization.
 #
@@ -29,9 +29,9 @@ set -euo pipefail
 ENV_NAME="${ENV_NAME:-so101}"
 ENV_ID="${ENV_ID:-SO101GraspCube-v1}"
 ENV_CONFIG="${ENV_CONFIG:-env_config.json}"
-SEED="${SEED:-3}"
-NUM_ENVS="${NUM_ENVS:-2048}"
-TOTAL_STEPS="${TOTAL_STEPS:-100_000_000}"
+SEED="${SEED:-1000}"
+NUM_ENVS="${NUM_ENVS:-1024}"
+TOTAL_STEPS="${TOTAL_STEPS:-4_000_000}"
 TRACK="${TRACK:-0}"
 WANDB_PROJECT="${WANDB_PROJECT:-SO101-ManiSkill}"
 EXP_NAME="${EXP_NAME:-${SLURM_JOB_NAME:-ppo-${ENV_ID}-rgb}-s${SEED}-${SLURM_JOB_ID:-local}}"
