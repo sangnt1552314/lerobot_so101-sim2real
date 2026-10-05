@@ -4,7 +4,6 @@
 #SBATCH --gres=gpu:h100-96:1
 #SBATCH --mem=64G
 #SBATCH --cpus-per-task=8
-# xgpi7: GPU camera rendering (Vulkan) hangs in create_camera_group on this node
 #SBATCH --output=%x-%j.out
 #SBATCH --error=%x-%j.out
 #SBATCH --time=04:00:00
@@ -76,22 +75,12 @@ if [[ -n "${GREENSCREEN}" && ! -f "${GREENSCREEN}" ]]; then
     exit 1
 fi
 
-# GPU camera rendering (Vulkan + CUDA interop) hangs instead of erroring on some nodes. Check it on a
-# tiny env first so a bad node fails in minutes rather than burning the whole allocation.
-echo "vulkan ICD files: $(ls /usr/share/vulkan/icd.d/ /etc/vulkan/icd.d/ 2>/dev/null | tr '\n' ' ') | VK_ICD_FILENAMES=${VK_ICD_FILENAMES:-unset}"
-if ! timeout 180 python - "${ENV_ID}" <<'EOF'
-import sys, time
-import gymnasium as gym
-import mani_skill.envs  # noqa: F401
-t0 = time.time()
-env = gym.make(sys.argv[1], num_envs=2, obs_mode="rgb+segmentation", sim_backend="physx_cuda")
-env.reset(seed=0)
-env.close()
-print(f"render check passed in {time.time() - t0:.1f}s")
-EOF
-then
-    echo "ERROR: GPU rendering check failed or hung on $(hostname). Vulkan is likely broken on this node." >&2
-    echo "       Resubmit with: sbatch --exclude=$(hostname -s) scripts/train_lift_cube_dr.sbatch" >&2
+# GPU camera rendering (Vulkan + CUDA interop) can hang instead of erroring. Pick a working Vulkan driver,
+# installing NVIDIA's user-space libs if needed, and check it on a tiny env before the real run.
+source scripts/setup_vulkan.sh
+if ! setup_vulkan "${ENV_ID}"; then
+    echo "ERROR: no working GPU rendering setup on $(hostname -s); see [vulkan] lines above." >&2
+    echo "       To avoid this node: sbatch --exclude=$(hostname -s) scripts/train_lift_cube_dr.sbatch" >&2
     exit 1
 fi
 
