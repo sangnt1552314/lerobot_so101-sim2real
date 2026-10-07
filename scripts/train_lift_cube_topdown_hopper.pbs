@@ -1,0 +1,26 @@
+#!/bin/bash
+#PBS -P CFP05-CF-002
+#PBS -N so101-grasp-cube-topdown
+#PBS -q auto
+#PBS -l select=1:ngpus=1:ncpus=14:mem=200gb
+#PBS -l walltime=20:00:00
+#PBS -j oe
+
+# Hopper training for the top-down third-view camera: same pipeline and hyperparameters as
+# scripts/train_lift_cube_dr_hopper.pbs, but with env_config_topdown.json (camera pose + greenscreen_topdown.png).
+#
+# Submit from the repo root:
+#   qsub scripts/train_lift_cube_topdown_hopper.pbs
+# Live log: logs/train/<exp name>.log
+#
+# All overrides of train_lift_cube_dr_hopper.pbs work through qsub -v, e.g.
+#   qsub -v SEED=2,TOTAL_STEPS=50_000_000 scripts/train_lift_cube_topdown_hopper.pbs
+#
+# Before submitting, env_config_topdown.json must hold the aligned top-down camera and greenscreen_topdown.png
+# must exist (the job stops early if it does not).
+set -euo pipefail
+
+cd "${PBS_O_WORKDIR:-$(pwd)}"
+export ENV_CONFIG="${ENV_CONFIG:-env_config_topdown.json}"
+# the PBS directives in the inner script are ignored; this job's resources and name (PBS_JOBNAME) apply
+exec bash scripts/train_lift_cube_dr_hopper.pbs

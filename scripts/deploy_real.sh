@@ -6,7 +6,7 @@
 # Extra arguments are passed to eval_ppo_rgb.py. Ctrl+C returns the arm to rest and exits.
 set -euo pipefail
 
-CHECKPOINT="runs/so101-grasp-cube-dr-s1000-911596/final_ckpt.pt"
+CHECKPOINT="runs/so101-grasp-cube-dr-s1000-650075/final_ckpt.pt"
 ROBOT_PORT="/dev/tty.usbmodem5C821064861"
 ROBOT_ID="home_follower"
 

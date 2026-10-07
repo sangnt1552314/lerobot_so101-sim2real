@@ -10,6 +10,7 @@ except ImportError:
     from lerobot.robots.so_follower import SO100FollowerConfig, SO101FollowerConfig
 from lerobot.robots.utils import make_robot_from_config
 import numpy as np
+from lerobot.cameras import Cv2Rotation
 from lerobot.cameras.opencv import OpenCVCameraConfig
 
 def create_real_robot(uid: str = "so100", port: Optional[str] = None, robot_id: Optional[str] = None) -> Robot:
@@ -38,8 +39,8 @@ def create_real_robot(uid: str = "so100", port: Optional[str] = None, robot_id: 
         )
     elif uid == "so101":
         robot_config = SO101FollowerConfig(
-            port="/dev/tty.usbmodem5A7A0570661",
-            id="so101_follower",
+            port="/dev/tty.usbmodem5C821064861",
+            id="home_follower",
             use_degrees=True,
             # for phone camera users you can use the commented out setting below
             # cameras={
@@ -48,11 +49,14 @@ def create_real_robot(uid: str = "so100", port: Optional[str] = None, robot_id: 
             # for intel realsense camera users you need to modify the serial number or name for your own hardware
             cameras={
                 "base_camera": OpenCVCameraConfig(
-                    index_or_path=1,  # iPhone (Continuity Camera); 0 is the MacBook webcam
-                    height=1080,
-                    width=1920,
+                    # third-view icspring USB camera (640x480). OpenCV indices on macOS shift when cameras are
+                    # plugged in/out; at setup time: 0 = wrist icspring (1080p), 1 = this camera, 2 = MacBook FaceTime, 3 = iPhone
+                    index_or_path=1,
+                    height=480,
+                    width=640,
                     fps=30,
-                    warmup_s=2,
+                    warmup_s=3,
+                    rotation=Cv2Rotation.ROTATE_180,  # the camera is mounted upside down
                     )
             },
         )
@@ -63,4 +67,8 @@ def create_real_robot(uid: str = "so100", port: Optional[str] = None, robot_id: 
     if robot_id is not None:
         robot_config.id = robot_id
     real_robot = make_robot_from_config(robot_config)
+    if uid == "so101":
+        # this arm's calibrated shoulder_pan turns opposite to the sim joint (+pan turns the real arm to its
+        # left, the sim arm to its right). LeRobotRealAgent negates it when reading and commanding.
+        real_robot.sim2real_joint_signs = {"shoulder_pan": -1}
     return real_robot

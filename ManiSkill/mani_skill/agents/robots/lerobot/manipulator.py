@@ -3,7 +3,7 @@ Code based on https://github.com/huggingface/lerobot for supporting real robot c
 """
 
 import time
-from typing import List, Optional
+from typing import Dict, List, Optional
 
 import numpy as np
 import torch
@@ -49,6 +49,9 @@ class LeRobotRealAgent(BaseRealAgent):
         self.use_cached_qpos = use_cached_qpos
         self._cached_qpos = None
         self._motor_keys: List[str] = None
+        self.joint_signs: Dict[str, float] = getattr(robot, "sim2real_joint_signs", {})
+        """per-motor sign flips between the real robot's calibrated direction and the sim joint, e.g. {"shoulder_pan": -1}.
+        Set as an attribute on the robot (see lerobot_sim2real/config/real_robot.py)."""
 
         if self.real_robot.name == "so100_follower":
             self.real_robot.bus.motors["gripper"].norm_mode = MotorNormMode.DEGREES
@@ -67,6 +70,8 @@ class LeRobotRealAgent(BaseRealAgent):
         # NOTE (stao): It seems the calibration from LeRobot has some offsets in some joints. We fix reading them here to match the expected behavior
         if self.real_robot.name == "so100_follower":
             qpos["elbow_flex.pos"] = qpos["elbow_flex.pos"] + 6.8
+        for motor, sign in self.joint_signs.items():
+            qpos[f"{motor}.pos"] = qpos[f"{motor}.pos"] * sign
         self.real_robot.send_action(qpos)
 
     def reset(self, qpos: Array):
@@ -122,6 +127,8 @@ class LeRobotRealAgent(BaseRealAgent):
         # NOTE (stao): It seems the calibration from LeRobot has some offsets in some joints. We fix reading them here to match the expected behavior
         if self.real_robot.name == "so100_follower":
             qpos_deg["elbow_flex"] = qpos_deg["elbow_flex"] - 6.8
+        for motor, sign in self.joint_signs.items():
+            qpos_deg[motor] = qpos_deg[motor] * sign
         if self._motor_keys is None:
             self._motor_keys = list(qpos_deg.keys())
         qpos_deg = common.flatten_state_dict(qpos_deg)
