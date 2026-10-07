@@ -1,4 +1,5 @@
 import copy
+import os
 
 import numpy as np
 import sapien
@@ -18,7 +19,8 @@ from mani_skill.utils.structs.pose import Pose
 @register_agent()
 class SO101(BaseAgent):
     uid = "so101"
-    urdf_path = f"{PACKAGE_ASSET_DIR}/robots/so101/so101.urdf"
+    # SO101_URDF_PATH can point at a variant, e.g. so101_lowpoly.urdf (scripts/make_lowpoly_so101.py) for faster rendering
+    urdf_path = os.environ.get("SO101_URDF_PATH", f"{PACKAGE_ASSET_DIR}/robots/so101/so101.urdf")
     urdf_config = dict(
         _materials=dict(
             gripper=dict(static_friction=2.5, dynamic_friction=2.5, restitution=0.0)

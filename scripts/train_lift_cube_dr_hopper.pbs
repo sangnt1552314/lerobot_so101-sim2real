@@ -1,0 +1,127 @@
+#!/bin/bash
+#PBS -P CFP05-CF-002
+#PBS -N so101-grasp-cube-dr
+#PBS -q auto
+#PBS -l select=1:ngpus=1:ncpus=14:mem=200gb
+#PBS -l walltime=20:00:00
+#PBS -j oe
+
+# Hopper (PBS + Singularity) version of scripts/train_lift_cube_dr.sbatch:
+# RGB PPO training of SO101GraspCube-v1 with domain randomization.
+#
+# Submit from the repo root:
+#   qsub scripts/train_lift_cube_dr_hopper.pbs
+# Live log: logs/train/<exp name>.log (the PBS .o file only holds the container launch output).
+#
+# Overridable via qsub -v, e.g.  qsub -v SEED=2,NUM_ENVS=1024,TRACK=1,WANDB_ENTITY=me scripts/train_lift_cube_dr_hopper.pbs
+#   ENV_ID        ManiSkill env id                       (default: SO101GraspCube-v1)
+#   ENV_CONFIG    env kwargs json                        (default: env_config.json)
+#   SEED          random seed                            (default: 1000)
+#   NUM_ENVS      parallel training envs                 (default: 2048)
+#   TOTAL_STEPS   total env steps                        (default: 25_000_000)
+#   TRACK         1 = log to Weights & Biases            (default: 0)
+#   WANDB_ENTITY  W&B entity, required when TRACK=1
+#   WANDB_PROJECT W&B project                            (default: SO101-ManiSkill)
+#   EXP_NAME      run name                               (default: <job name>-s<seed>-<job id>)
+#   TF32          1 = allow TF32 in cuBLAS/cuDNN (NVIDIA_TF32_OVERRIDE) (default: 0)
+#   EXTRA_ARGS    extra train_ppo_rgb.py args, space separated, no commas (e.g. "--ppo.no-torch-deterministic")
+#
+# Python env: the PyTorch 2.6 / CUDA 12.8 image provides torch; the venv my_lebot (created inside that image with
+# --system-site-packages) adds ManiSkill + this repo. One-time install into the venv, inside the image:
+#   pip install -c <(printf "numpy==1.26.4\nprotobuf==4.24.4\n") -e ./ManiSkill -e .
+#   pip uninstall -y opencv-python && pip install opencv-python-headless==4.11.0.86   # no libGL in the image
+#   mkdir -p $VENV/extra_libs && cp -L /usr/lib64/{libX11.so.6,libxcb.so.1,libXau.so.6,libXext.so.6} $VENV/extra_libs/  # sapien + NVIDIA Vulkan ICD
+set -euo pipefail
+
+IMAGE="${IMAGE:-/app1/common/singularity-img/hopper/pytorch/pytorch_2.6.0_cuda_12.8.sif}"
+VENV="${VENV:-/scratch/e1583535/virtualenvs/my_lebot}"
+SCRATCH_TMP="/scratch/e1583535/tmp"
+
+export ENV_ID="${ENV_ID:-SO101GraspCube-v1}"
+export ENV_CONFIG="${ENV_CONFIG:-env_config.json}"
+export SEED="${SEED:-1000}"
+export NUM_ENVS="${NUM_ENVS:-2048}"
+export TOTAL_STEPS="${TOTAL_STEPS:-25_000_000}"
+export TRACK="${TRACK:-0}"
+export WANDB_ENTITY="${WANDB_ENTITY:-}"
+export WANDB_PROJECT="${WANDB_PROJECT:-SO101-ManiSkill}"
+JOB_ID="${PBS_JOBID%%.*}"
+export EXP_NAME="${EXP_NAME:-${PBS_JOBNAME:-ppo-${ENV_ID}-rgb}-s${SEED}-${JOB_ID:-local}}"
+export TF32="${TF32:-0}"
+export EXTRA_ARGS="${EXTRA_ARGS:-}"
+
+cd "${PBS_O_WORKDIR:-$(pwd)}"
+mkdir -p logs/train "${SCRATCH_TMP}"
+LOG="logs/train/${EXP_NAME}.log"
+echo "host: $(hostname) | job: ${PBS_JOBID:-n/a} | log: $(pwd)/${LOG}"
+
+module load singularity
+
+# -e drops the host env, so everything the inner script needs is passed explicitly.
+singularity exec -e --nv \
+    --env "VENV=${VENV},ENV_ID=${ENV_ID},ENV_CONFIG=${ENV_CONFIG},SEED=${SEED},NUM_ENVS=${NUM_ENVS}" \
+    --env "TOTAL_STEPS=${TOTAL_STEPS},TRACK=${TRACK},WANDB_ENTITY=${WANDB_ENTITY},WANDB_PROJECT=${WANDB_PROJECT}" \
+    --env "EXP_NAME=${EXP_NAME},PBS_JOBID=${PBS_JOBID:-},HF_HOME=/scratch/e1583535/cache" \
+    --env "TF32=${TF32},EXTRA_ARGS=${EXTRA_ARGS}" \
+    --env "TMPDIR=${SCRATCH_TMP},TMP=${SCRATCH_TMP},TEMP=${SCRATCH_TMP}" \
+    "${IMAGE}" bash <<'EOF' >"${LOG}" 2>&1
+set -euo pipefail
+source "${VENV}/bin/activate"
+# libX11/libXext & co. for sapien and the NVIDIA Vulkan ICD (missing from the image)
+export LD_LIBRARY_PATH="${VENV}/extra_libs${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}"
+export PYTHONPATH="$(pwd)${PYTHONPATH:+:${PYTHONPATH}}"
+export PYTHONUNBUFFERED=1
+
+echo "host: $(hostname) | job: ${PBS_JOBID:-n/a} | exp: ${EXP_NAME}"
+echo "python: $(command -v python) | repo: $(pwd)"
+python -c "import torch, mani_skill, lerobot_sim2real; print('torch', torch.__version__, '| cuda', torch.cuda.is_available(), '| mani_skill', mani_skill.__version__)"
+nvidia-smi
+
+# The env config points at a greenscreen image; fail early instead of crashing after env setup.
+GREENSCREEN=$(python -c "import json,sys; print(json.load(open(sys.argv[1])).get('greenscreen_overlay_path') or '')" "${ENV_CONFIG}")
+if [[ -n "${GREENSCREEN}" && ! -f "${GREENSCREEN}" ]]; then
+    echo "ERROR: ${ENV_CONFIG} references greenscreen '${GREENSCREEN}' which does not exist." >&2
+    exit 1
+fi
+
+# The image has no Vulkan ICD, and the libGLX_nvidia.so.0 that --nv binds in fails vkCreateInstance, so
+# setup_vulkan falls through to NVIDIA's user-space libs for this node's driver (downloaded once into
+# ~/.cache/nvidia-vulkan). Keep the driver's shader cache off the NFS home: rendering stalled there.
+export __GL_SHADER_DISK_CACHE_PATH="/scratch/e1583535/cache/nvidia-glcache"
+mkdir -p "${__GL_SHADER_DISK_CACHE_PATH}"
+source scripts/setup_vulkan.sh
+if ! setup_vulkan "${ENV_ID}"; then
+    # Seen on some nodes (e.g. hopper-21): rendering hangs there. Resubmitting usually lands on a working node.
+    echo "ERROR: no working GPU rendering setup on $(hostname -s); see [vulkan] lines above. Resubmit the job." >&2
+    exit 1
+fi
+
+if [[ "${TF32}" == "1" ]]; then
+    export NVIDIA_TF32_OVERRIDE=1
+fi
+read -r -a EXTRA <<<"${EXTRA_ARGS}"
+
+TRACK_ARGS=()
+if [[ "${TRACK}" == "1" ]]; then
+    : "${WANDB_ENTITY:?set WANDB_ENTITY when TRACK=1}"
+    TRACK_ARGS=(--ppo.track --ppo.wandb_project_name "${WANDB_PROJECT}" --ppo.wandb_entity "${WANDB_ENTITY}")
+fi
+
+# Same hyperparameters as scripts/train_lift_cube_dr.sbatch.
+# Python segfaults during interpreter teardown with this driver setup (after everything is saved), so judge
+# success by the final checkpoint instead of the exit code.
+status=0
+python lerobot_sim2real/scripts/train_ppo_rgb.py \
+    --env-id="${ENV_ID}" --env-kwargs-json-path="${ENV_CONFIG}" \
+    --ppo.seed="${SEED}" \
+    --ppo.num_envs="${NUM_ENVS}" --ppo.num-steps=16 --ppo.update_epochs=8 --ppo.num_minibatches=32 \
+    --ppo.total_timesteps="${TOTAL_STEPS}" --ppo.gamma=0.9 \
+    --ppo.num_eval_envs=16 --ppo.num-eval-steps=64 --ppo.no-partial-reset \
+    --ppo.exp-name="${EXP_NAME}" \
+    ${TRACK_ARGS[@]+"${TRACK_ARGS[@]}"} ${EXTRA[@]+"${EXTRA[@]}"} || status=$?
+if [[ ${status} -ne 0 && -f "runs/${EXP_NAME}/final_ckpt.pt" ]]; then
+    echo "training exited with ${status} after saving runs/${EXP_NAME}/final_ckpt.pt (teardown crash), treating as success"
+    status=0
+fi
+exit ${status}
+EOF

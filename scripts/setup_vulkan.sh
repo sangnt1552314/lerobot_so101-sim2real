@@ -23,14 +23,16 @@ _use_icd() {
 # can ignore SIGTERM.
 _render_ok() {
     timeout -k 10 180 python - "$1" <<'EOF'
-import sys, time
+import os, sys, time
 import gymnasium as gym
 import mani_skill.envs  # noqa: F401
 t0 = time.time()
 env = gym.make(sys.argv[1], num_envs=2, obs_mode="rgb+segmentation", sim_backend="physx_cuda")
 env.reset(seed=0)
 env.close()
-print(f"[vulkan] render check passed in {time.time() - t0:.1f}s")
+print(f"[vulkan] render check passed in {time.time() - t0:.1f}s", flush=True)
+# skip interpreter teardown: with some driver setups (e.g. the user-space libs on Hopper) it segfaults
+os._exit(0)
 EOF
 }
 

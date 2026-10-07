@@ -17,3 +17,6 @@ wandb/
 runs/
 outputs/
 checkpoints/
+
+logs/
+*.o*
