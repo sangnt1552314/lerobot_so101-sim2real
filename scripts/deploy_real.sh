@@ -7,8 +7,10 @@
 set -euo pipefail
 
 CHECKPOINT="runs/so101-grasp-cube-dr-s1000-650075/final_ckpt.pt"
-ROBOT_PORT="/dev/tty.usbmodem5C821064861"
-ROBOT_ID="home_follower"
+# ROBOT_PORT="/dev/tty.usbmodem5C821064861"
+# ROBOT_ID="home_follower"
+ROBOT_PORT="/dev/tty.usbmodem5B610366661"
+ROBOT_ID="my_follower"
 
 cd "$(dirname "$0")/.."
 export PYTHONPATH="$(pwd)"

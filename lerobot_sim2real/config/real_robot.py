@@ -49,14 +49,14 @@ def create_real_robot(uid: str = "so100", port: Optional[str] = None, robot_id: 
             # for intel realsense camera users you need to modify the serial number or name for your own hardware
             cameras={
                 "base_camera": OpenCVCameraConfig(
-                    # third-view icspring USB camera (640x480). OpenCV indices on macOS shift when cameras are
-                    # plugged in/out; at setup time: 0 = wrist icspring (1080p), 1 = this camera, 2 = MacBook FaceTime, 3 = iPhone
+                    # third-view iPhone (Continuity Camera). OpenCV indices on macOS shift when cameras are
+                    # plugged in/out or the iPhone reconnects, so check the frame of each index before deploying
+                    # (for the upside-down icspring third-view camera use 640x480 with rotation=Cv2Rotation.ROTATE_180)
                     index_or_path=1,
-                    height=480,
-                    width=640,
+                    height=1080,
+                    width=1920,
                     fps=30,
                     warmup_s=3,
-                    rotation=Cv2Rotation.ROTATE_180,  # the camera is mounted upside down
                     )
             },
         )
