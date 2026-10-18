@@ -42,7 +42,7 @@ lerobot-train \
     --policy.type=act \
     --policy.device=cuda \
     --policy.push_to_hub=false \
-    --output_dir=/scratch/e1583535/projects/act_legalaspro \
+    --output_dir=/home/n/ntasang/projects/lerobot_so101-sim2real/runs/act_legalaspro \
     --steps=100000 \
     --batch_size=8 \
     --wandb.enable=false
